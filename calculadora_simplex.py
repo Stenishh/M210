@@ -130,22 +130,12 @@ st.markdown("""
 
 # ==================== FUNÇÕES PRINCIPAIS ====================
 
-def simplex(funcObj, restricoes, constantes, num_variables, tipo_otimizacao):
+def simplex(funcObj, restricoes, constantes, operadores, num_variables, tipo_otimizacao):
     """
     Resolve Problemas de Programação Linear usando biblioteca PuLP
-    
-    Args:
-        funcObj: Lista de coeficientes da função objetivo
-        restricoes: Matriz de coeficientes das restrições
-        constantes: Lista de valores do lado direito (RHS)
-        num_variables: Número de variáveis de decisão
-        tipo_otimizacao: "Maximizar" ou "Minimizar"
-    
-    Returns:
-        solucao: Array com valores ótimos das variáveis
-        valorOtimo: Valor ótimo da função objetivo
-        precoSombra: Preços-sombra das restrições
-        tableau: Tableau simplificado para exibição
+    Agora suporta restrições do tipo ≤, ≥ e =.
+    Retorna também um tableau simplificado para exibição (com uma coluna de folga/sobra por restrição).
+    Observação: o tableau aqui é uma representação simples para visualização.
     """
     try:
         # Define o tipo de problema
@@ -160,9 +150,16 @@ def simplex(funcObj, restricoes, constantes, num_variables, tipo_otimizacao):
         # Define a função objetivo
         prob += sum([funcObj[i] * vars[i] for i in range(num_variables)]), "FuncaoObjetivo"
         
-        # Adiciona as restrições
+        # Adiciona as restrições conforme o operador escolhido
         for i in range(len(constantes)):
-            prob += (sum([restricoes[i][j] * vars[j] for j in range(num_variables)]) <= constantes[i], f"Restricao_{i+1}")
+            expr = sum([restricoes[i][j] * vars[j] for j in range(num_variables)])
+            op = operadores[i]
+            if op == "≤":
+                prob += (expr <= constantes[i], f"Restricao_{i+1}")
+            elif op == "≥":
+                prob += (expr >= constantes[i], f"Restricao_{i+1}")
+            else:  # "="
+                prob += (expr == constantes[i], f"Restricao_{i+1}")
         
         # Resolve o problema
         status = prob.solve()
@@ -193,17 +190,24 @@ def simplex(funcObj, restricoes, constantes, num_variables, tipo_otimizacao):
         precoSombra = np.array(precoSombra)
         
         # Monta um tableau simplificado para exibição
+        # Colunas: variáveis de decisão | uma coluna 's_i' por restrição (folga/sobra) | LD
         n_cons = len(constantes)
         tableau = np.zeros((n_cons + 1, num_variables + n_cons + 1))
         
-        # Preenche com valores das restrições
+        # Preenche com valores das restrições e coluna de folga/sobra
         for i in range(n_cons):
             for j in range(num_variables):
                 tableau[i, j] = restricoes[i][j]
-            tableau[i, num_variables + i] = 1  # Variável de folga
+            # para <= colocamos +1 na coluna de folga, para >= colocamos -1, para = colocamos 0
+            if operadores[i] == "≤":
+                tableau[i, num_variables + i] = 1
+            elif operadores[i] == "≥":
+                tableau[i, num_variables + i] = -1
+            else:
+                tableau[i, num_variables + i] = 0
             tableau[i, -1] = constantes[i]
         
-        # Linha da função objetivo
+        # Linha da função objetivo (coeficientes)
         for i, coef in enumerate(funcObj):
             tableau[-1, i] = coef
         tableau[-1, -1] = valorOtimo
@@ -215,17 +219,13 @@ def simplex(funcObj, restricoes, constantes, num_variables, tipo_otimizacao):
         return None, None, None, None
 
 
-def validar_entrada(funcObj, restricoes, constantes):
+def validar_entrada(funcObj, restricoes, constantes, operadores):
     """Valida os dados de entrada do problema"""
     erros = []
     
     # Verifica se os coeficientes da função objetivo são números válidos
-    if not all(isinstance(c, (int, float)) for c in funcObj):
+    if not all(isinstance(c, (int, float, np.floating, np.integer)) for c in funcObj):
         erros.append("⚠️ Coeficientes da função objetivo devem ser numéricos")
-    
-    # Verifica se as constantes são não-negativas
-    if any(c < 0 for c in constantes):
-        erros.append("⚠️ As constantes (lado direito) devem ser não-negativas (≥ 0)")
     
     # Verifica se há pelo menos uma restrição
     if len(restricoes) == 0:
@@ -234,6 +234,19 @@ def validar_entrada(funcObj, restricoes, constantes):
     # Verifica se todas as restrições têm o mesmo número de coeficientes
     if restricoes and not all(len(r) == len(restricoes[0]) for r in restricoes):
         erros.append("⚠️ Todas as restrições devem ter o mesmo número de variáveis")
+    
+    # Verifica consistência entre tamanhos
+    if not (len(constantes) == len(restricoes) == len(operadores)):
+        erros.append("⚠️ Número de constantes, operadores e restrições deve ser o mesmo")
+    
+    # Verifica os operadores
+    if any(op not in ["≤", "≥", "="] for op in operadores):
+        erros.append("⚠️ Operadores inválidos detectados")
+    
+    # Nota sobre constantes negativas (permitidas, mas pode gerar inviabilidade)
+    # Não bloqueamos, apenas avisamos
+    if any((not isinstance(c, (int, float, np.floating, np.integer))) for c in constantes):
+        erros.append("⚠️ As constantes (lado direito) devem ser numéricas")
     
     return erros
 
@@ -270,10 +283,10 @@ with st.expander("📚 **Sobre esta Calculadora** | Clique para expandir", expan
         
         - ✅ Suporta **2, 3 ou 4 variáveis** de decisão
         - ✅ Problemas de **Maximização** e **Minimização**
-        - ✅ Restrições do tipo **≤** (menor ou igual)
+        - ✅ Restrições do tipo **≤**, **≥** e **=**
         - ✅ Calcula **ponto ótimo** e **valor ótimo**
         - ✅ Determina **preços-sombra** (shadow prices)
-        - ✅ Exibe **tableau final** do Simplex
+        - ✅ Exibe **tableau simplificado** do Simplex
         - ✅ Validação automática de entrada
         - ✅ Interface intuitiva e visual
         """)
@@ -285,9 +298,9 @@ with st.expander("📚 **Sobre esta Calculadora** | Clique para expandir", expan
     1. **Configure** o número de variáveis e restrições na barra lateral
     2. **Nomeie** as variáveis (opcional) para facilitar a interpretação
     3. **Insira** os coeficientes da função objetivo
-    4. **Defina** as restrições com seus coeficientes e limites
+    4. **Defina** as restrições com seus coeficientes, tipo e limites
     5. **Clique** em "Calcular Solução Ótima" para obter os resultados
-    6. **Analise** os resultados: ponto ótimo, valor ótimo e preços-sombra
+    6. **Analise** os resultados: ponto ótimo, valor ótimo, preços-sombra e tableau
     """)
 
 st.markdown("---")
@@ -415,15 +428,16 @@ with st.form(key="ppl_form"):
     
     # Monta a equação com os nomes personalizados
     equacao_rest = " + ".join([f"a·{nomes_variaveis[i]}" for i in range(num_variables)])
-    st.markdown(f"**Formato:** `{equacao_rest} ≤ b`")
-    st.caption("💡 Todas as restrições devem ser do tipo ≤ (menor ou igual) com lado direito não-negativo")
+    st.markdown(f"**Formato:** `{equacao_rest} ≤ b` (mas você pode escolher ≤, ≥ ou = por restrição)")
+    st.caption("💡 Defina coeficientes, operador e lado direito (b) para cada restrição")
     
     restric = []
     const = []
+    operadores = []
     
     for i in range(num_constraints):
         st.markdown(f"#### Restrição {i+1}:")
-        cols_rest = st.columns(num_variables + 1)
+        cols_rest = st.columns(num_variables + 2)
         row = []
         
         for j in range(num_variables):
@@ -440,13 +454,21 @@ with st.form(key="ppl_form"):
         restric.append(row)
         
         with cols_rest[num_variables]:
+            operador = st.selectbox(
+                f"Operador (R{i+1})",
+                options=["≤", "=", "≥"],
+                key=f"r{i}_op",
+                help="Escolha o tipo da restrição"
+            )
+            operadores.append(operador)
+        
+        with cols_rest[num_variables+1]:
             b_val = st.number_input(
-                "**≤ b** (LD)",
+                f"LD b{i+1}",
                 key=f"r{i}_b",
                 value=10.0,
-                min_value=0.0,
                 format="%.2f",
-                help=f"Lado direito da restrição {i+1} (deve ser ≥ 0)"
+                help=f"Lado direito da restrição {i+1} (RHS)"
             )
             const.append(b_val)
 
@@ -466,7 +488,7 @@ with st.form(key="ppl_form"):
 if submit_button:
     
     # Validação de entrada
-    erros = validar_entrada(funcObj, restric, const)
+    erros = validar_entrada(funcObj, restric, const, operadores)
     
     if erros:
         st.markdown('<div class="warning-box">', unsafe_allow_html=True)
@@ -477,7 +499,7 @@ if submit_button:
     else:
         # Resolve o problema
         with st.spinner('🔄 **Resolvendo o problema de programação linear...**'):
-            solucao, valorOtimo, precoSombra, final_tableau = simplex(funcObj, restric, const, num_variables, tipo_otimizacao)
+            solucao, valorOtimo, precoSombra, final_tableau = simplex(funcObj, restric, const, operadores, num_variables, tipo_otimizacao)
 
         if solucao is not None:
             
@@ -548,7 +570,7 @@ if submit_button:
             st.markdown("---")
             with st.expander("🔢 **Tableau Final do Simplex** (Visualização Avançada)", expanded=False):
                 st.markdown("### 📐 Tableau Final da Solução")
-                st.caption("Esta tabela mostra o estado final do algoritmo Simplex")
+                st.caption("Esta tabela mostra uma representação simplificada do tableau (coluna de folga/sobra por restrição)")
                 
                 subscripts = ['₁', '₂', '₃', '₄']
                 headers = [nomes_variaveis[i] for i in range(num_variables)]
@@ -572,14 +594,12 @@ if submit_button:
                 st.markdown("""
                 **📖 Legenda:**
                 - **Variáveis de decisão:** Com nomes personalizados
-                - **sᵢ:** Variáveis de folga (slack variables)
+                - **sᵢ:** Coluna de folga/sobra (1 para ≤, -1 para ≥, 0 para =) — representação simplificada
                 - **LD:** Lado direito (Right-Hand Side)
                 - **Rᵢ:** Linhas das restrições
                 - **Z:** Linha da função objetivo
-                
-                💡 Os valores na última coluna (LD) da linha Z mostram o valor ótimo da função objetivo.
                 """)
-
+                
 # ==================== RODAPÉ ====================
 st.markdown("---")
 st.markdown("""
@@ -594,4 +614,3 @@ st.markdown("""
     </p>
 </div>
 """, unsafe_allow_html=True)
-
