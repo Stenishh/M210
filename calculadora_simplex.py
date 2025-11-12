@@ -572,7 +572,7 @@ if submit_button:
                 st.markdown("### 📐 Tableau Final da Solução")
                 st.caption("Esta tabela mostra uma representação simplificada do tableau (coluna de folga/sobra por restrição)")
                 
-                subscripts = ['₁', '₂', '₃', '₄']
+                subscripts = ['₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉', '₁₀']
                 headers = [nomes_variaveis[i] for i in range(num_variables)]
                 headers += [f"s{subscripts[i]}" for i in range(num_constraints)]
                 headers.append("LD")
