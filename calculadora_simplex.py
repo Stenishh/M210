@@ -408,7 +408,7 @@ with st.form(key="ppl_form"):
     
     funcObj = []
     cols_obj = st.columns(num_variables)
-    subscripts = ['₁', '₂', '₃', '₄']
+    subscripts = ['₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈', '₉', '₁₀']
     
     for i in range(num_variables):
         with cols_obj[i]:
