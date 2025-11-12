@@ -281,7 +281,7 @@ with st.expander("📚 **Sobre esta Calculadora** | Clique para expandir", expan
         st.markdown("""
         ### ⚙️ **Características desta Calculadora**
         
-        - ✅ Suporta **2, 3 ou 4 variáveis** de decisão
+        - ✅ Suporta **até 10 variáveis** de decisão
         - ✅ Problemas de **Maximização** e **Minimização**
         - ✅ Restrições do tipo **≤**, **≥** e **=**
         - ✅ Calcula **ponto ótimo** e **valor ótimo**
@@ -324,9 +324,9 @@ st.sidebar.markdown("---")
 # Número de Variáveis
 num_variables = st.sidebar.selectbox(
     "🔢 **Número de Variáveis de Decisão**",
-    options=[2, 3, 4],
+    options=[2, 3, 4, 5, 6, 7, 8, 9, 10],
     index=0,
-    help="Escolha quantas variáveis de decisão (x₁, x₂, x₃, x₄) o problema terá"
+    help="Escolha quantas variáveis de decisão o problema terá (máximo 10)"
 )
 
 # Número de Restrições
@@ -344,7 +344,7 @@ st.sidebar.markdown("### 🏷️ **Nomear Variáveis (Opcional)**")
 st.sidebar.caption("Personalize os nomes das variáveis para facilitar a interpretação")
 
 nomes_variaveis = []
-for i in range(4):  # Sempre 4 para cobrir todas as possibilidades
+for i in range(10):  # Sempre 10 para cobrir todas as possibilidades
     if i < num_variables:
         nome = st.sidebar.text_input(
             f"Variável x{i+1}",
